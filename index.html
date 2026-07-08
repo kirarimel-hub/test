@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>匿名チャットルーム (Firebase版)</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 90vh; }
+        #chat-container { flex: 1; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; }
+        #header { padding: 15px; background: #333; color: white; display: flex; justify-content: space-between; align-items: center; }
+        #clear-btn { background: #ff4d4d; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
+        #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .message-box { background: #e9ecef; padding: 10px 15px; border-radius: 15px; max-width: 70%; position: relative; align-self: flex-start; }
+        .time { font-size: 0.75rem; color: #666; margin-top: 5px; text-align: right; }
+        .actions { margin-top: 8px; display: flex; gap: 5px; align-items: center; }
+        .react-btn { background: none; border: 1px solid #ddd; border-radius: 12px; padding: 2px 6px; font-size: 0.8rem; cursor: pointer; background: white; }
+        .delete-btn { background: none; border: none; color: #999; cursor: pointer; font-size: 0.8rem; margin-left: auto; }
+        .delete-btn:hover { color: red; }
+        #input-area { padding: 15px; display: flex; gap: 10px; background: #fff; border-top: 1px solid #ddd; }
+        #message-input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; outline: none; }
+        #send-btn { background: #0084ff; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div id="chat-container">
+    <div id="header">
+        <h2>匿名チャット (毎日21時自動消去)</h2>
+        <button id="clear-btn">ログを全削除</button>
+    </div>
+    <div id="messages"></div>
+    <div id="input-area">
+        <input type="text" id="message-input" placeholder="メッセージを入力（匿名）...">
+        <button id="send-btn">送信</button>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, increment, getDocs, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // Firebaseの接続設定（あなたのプロジェクトのものをそのまま維持しています）
+    const firebaseConfig = {
+        apiKey: "AIzaSyBNl085XeZfHiuerUWkUEXT5-gTrc96KwE",
+        authDomain: "test-31742.firebaseapp.com",
+        projectId: "test-31742",
+        storageBucket: "test-31742.firebasestorage.app",
+        messagingSenderId: "828848066600",
+        appId: "1:828848066600:web:8d0e1ae6fc77c8a90e651d"
+    };
+
+    // Firebaseの初期化
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const messagesRef = collection(db, "chats");
+
+    const messagesDiv = document.getElementById('messages');
+    const messageInput = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
+    const clearAllBtn = document.getElementById('clear-btn');
+
+    // 21:00以降の古いメッセージを自動クリーンアップする関数
+    async function checkAndCleanupOldMessages() {
+        const now = new Date();
+        const targetTime = new Date();
+        targetTime.setHours(21, 0, 0, 0);
+
+        if (now >= targetTime) {
+            const q = query(messagesRef, where("createdAt", "<", targetTime));
+            const querySnapshot = await getDocs(q);
+            querySnapshot.forEach((docSnap) => {
+                deleteDoc(doc(db, "chats", docSnap.id));
+            });
+        }
+    }
+
+    // リアルタイムにメッセージを監視・表示
+    const q = query(messagesRef, orderBy("createdAt", "asc"));
+    onSnapshot(q, (snapshot) => {
+        messagesDiv.innerHTML = '';
+        snapshot.forEach((docSnap) => {
+            const msg = docSnap.data();
+            appendMessage(docSnap.id, msg);
+        });
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        
+        // 21時消去のチェックを走らせる
+        checkAndCleanupOldMessages();
+    });
+
+    // メッセージ送信
+    async function sendMessage() {
+        const text = messageInput.value.trim();
+        if (!text) return;
+
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+
+        await addDoc(messagesRef, {
+            text: text,
+            time: timeStr,
+            createdAt: now,
+            reactions: { '👍': 0, '❤️': 0, '😂': 0, '😮': 0 }
+        });
+
+        messageInput.value = '';
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+
+    // 画面にメッセージを追加する関数
+    function appendMessage(id, msg) {
+        const msgEl = document.createElement('div');
+        msgEl.className = 'message-box';
+        msgEl.id = `msg-${id}`;
+        
+        let reactionButtons = '';
+        const reactions = msg.reactions || { '👍': 0, '❤️': 0, '😂': 0, '😮': 0 };
+        
+        Object.keys(reactions).forEach(emoji => {
+            const count = reactions[emoji];
+            reactionButtons += `<button class="react-btn" data-emoji="${emoji}">${emoji} ${count > 0 ? count : ''}</button>`;
+        });
+
+        msgEl.innerHTML = `
+            <div>${escapeHtml(msg.text)}</div>
+            <div class="time">${msg.time || ''}</div>
+            <div class="actions">
+                ${reactionButtons}
+                <button class="delete-btn">削除</button>
+            </div>
+        `;
+
+        // リアクションボタンのイベント
+        msgEl.querySelectorAll('.react-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const emoji = btn.getAttribute('data-emoji');
+                const updateData = {};
+                updateData[`reactions.${emoji}`] = increment(1);
+                updateDoc(doc(db, "chats", id), updateData);
+            });
+        });
+
+        // 個別削除ボタンのイベント
+        msgEl.querySelector('.delete-btn').addEventListener('click', () => {
+            if (confirm('このメッセージを削除しますか？')) {
+                deleteDoc(doc(db, "chats", id));
+            }
+        });
+
+        messagesDiv.appendChild(msgEl);
+    }
+
+    // 全削除機能
+    clearAllBtn.addEventListener('click', async () => {
+        if (confirm('本当にすべてのログを削除しますか？')) {
+            const querySnapshot = await getDocs(messagesRef);
+            querySnapshot.forEach((docSnap) => {
+                deleteDoc(doc(db, "chats", docSnap.id));
+            });
+        }
+    });
+
+    function escapeHtml(str) {
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+</script>
+</body>
+</html>
