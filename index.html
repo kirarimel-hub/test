@@ -15,15 +15,18 @@
         .tab-btn.active { background: #0084ff; }
         #media-input { flex: 1; padding: 6px; border-radius: 4px; border: none; }
         #media-sync-btn { background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
-        #player-container { flex: 1; position: relative; width: 100%; background: #111; display: flex; align-items: center; justify-content: center; }
-        #yt-player { width: 100%; height: 100%; }
-        #spotify-player { width: 100%; height: 100%; border: none; display: none; }
+        #player-container { flex: 1; position: relative; width: 100%; height: 100%; background: #111; }
+        #yt-player { width: 100%; height: 100%; position: absolute; top:0; left:0; }
+        #spotify-player { width: 100%; height: 100%; border: none; display: none; position: absolute; top:0; left:0; }
 
         /* チャットエリア */
-        #chat-container { flex: 1; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; }
-        #header { padding: 12px; background: #333; color: white; display: flex; justify-content: space-between; align-items: center; }
-        #clear-btn { background: #ff4d4d; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
-        #messages { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
+        #chat-container { flex: 1; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        
+        /* タイトルヘッダーを削除し、全削除ボタンのみを右上に浮かせるスタイルに変更 */
+        #clear-btn { position: absolute; top: 10px; right: 10px; background: #ff4d4d; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; z-index: 5; opacity: 0.6; transition: opacity 0.2s; }
+        #clear-btn:hover { opacity: 1; }
+
+        #messages { flex: 1; padding: 15px; padding-top: 45px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
         
         .message-wrapper { display: flex; flex-direction: column; align-self: flex-start; max-width: 85%; position: relative; }
         .message-box { background: #e9ecef; padding: 10px 14px; border-radius: 18px; cursor: pointer; user-select: none; transition: background 0.2s; }
@@ -47,22 +50,20 @@
         #message-input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; outline: none; }
         #send-btn { background: #0084ff; color: white; border: none; padding: 10px 18px; border-radius: 20px; cursor: pointer; }
 
-        /* スマホ対応（縦並びにする） */
         @media (max-width: 768px) {
             #main-layout { flex-direction: column; }
-            #media-area { min-height: 250px; flex: none; }
+            #media-area { height: 300px; flex: none; }
         }
     </style>
-    <script src="https://www.youtube.com/iframe_api"></script>
 </head>
 <body>
 
 <div id="main-layout">
     <div id="media-area">
         <div id="media-selector">
-            <button class="tab-btn active" id="tab-yt" onclick="switchMode('youtube')">YouTube</button>
-            <button class="tab-btn" id="tab-sp" onclick="switchMode('spotify')">Spotify</button>
-            <input type="text" id="media-input" placeholder="YouTubeのURL、またはSpotifyの共有リンクを貼る">
+            <button class="tab-btn active" id="tab-yt">YouTube</button>
+            <button class="tab-btn" id="tab-sp">Spotify</button>
+            <input type="text" id="media-input" placeholder="URLを貼り付けてください">
             <button id="media-sync-btn">共有</button>
         </div>
         <div id="player-container">
@@ -72,10 +73,7 @@
     </div>
 
     <div id="chat-container">
-        <div id="header">
-            <h3>匿名チャット (21時消去)</h3>
-            <button id="clear-btn">ログ全削除</button>
-        </div>
+        <button id="clear-btn">ログ全削除</button>
         <div id="messages"></div>
         <div id="input-area">
             <input type="text" id="message-input" placeholder="メッセージを入力...">
@@ -83,6 +81,8 @@
         </div>
     </div>
 </div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -100,7 +100,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const messagesRef = collection(db, "chats");
-    const mediaDocRef = doc(db, "roomState", "media"); // メディア同期用のドキュメント
+    const mediaDocRef = doc(db, "roomState", "media");
 
     const messagesDiv = document.getElementById('messages');
     const messageInput = document.getElementById('message-input');
@@ -108,26 +108,25 @@
     const clearAllBtn = document.getElementById('clear-btn');
     const mediaInput = document.getElementById('media-input');
     const mediaSyncBtn = document.getElementById('media-sync-btn');
+    const tabYt = document.getElementById('tab-yt');
+    const tabSp = document.getElementById('tab-sp');
 
     let ytPlayer = null;
     let currentMode = 'youtube'; 
-    let isUpdatingFromDB = false;
 
-    // YouTubeプレイヤーの初期化（APIから自動で呼ばれる）
+    // YouTubeプレイヤーの初期設定
     window.onYouTubeIframeAPIReady = () => {
         ytPlayer = new YT.Player('yt-player', {
-            videoId: 'dQw4w9WgXcQ', // 初期動画
-            events: {
-                'onStateChange': onPlayerStateChange
-            }
+            videoId: 'dQw4w9WgXcQ', // 初期のダミー動画
+            playerVars: { 'autoplay': 1, 'rel': 0 }
         });
     };
 
-    // モード切り替え（グローバル関数化）
-    window.switchMode = (mode) => {
+    // 切り替え関数
+    function switchMode(mode) {
         currentMode = mode;
-        document.getElementById('tab-yt').classList.toggle('active', mode === 'youtube');
-        document.getElementById('tab-sp').classList.toggle('active', mode === 'spotify');
+        tabYt.classList.toggle('active', mode === 'youtube');
+        tabSp.classList.toggle('active', mode === 'spotify');
         
         if (mode === 'youtube') {
             document.getElementById('yt-player').style.display = 'block';
@@ -136,74 +135,63 @@
             document.getElementById('yt-player').style.display = 'none';
             document.getElementById('spotify-player').style.display = 'block';
         }
-    };
-
-    // URLからIDを抽出するヘルパー関数
-    function getYoutubeId(url) {
-        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-        const match = url.match(regExp);
-        return (match && match[2].length === 11) ? match[2] : null;
     }
+
+    tabYt.addEventListener('click', () => switchMode('youtube'));
+    tabSp.addEventListener('click', () => switchMode('spotify'));
+
+    // あらゆる形式のYouTube URLから11桁のIDを確実に抜く処理
+    function extractYoutubeId(url) {
+        const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[7].length === 11) ? match[7] : url;
+    }
+
+    // Spotifyの共有リンクを埋め込み用のURL形式（/embed/）に変換する処理
     function convertSpotifyUrl(url) {
-        if (url.includes('spotify.com')) {
+        if (url.includes('spotify.com') && !url.includes('/embed')) {
             return url.replace('spotify.com/', 'spotify.com/embed/');
         }
         return url;
     }
 
-    // 「共有」ボタンを押した時、Firebaseに現在のメディア状態を送信
+    // 共有ボタンが押されたとき
     mediaSyncBtn.addEventListener('click', async () => {
         const val = mediaInput.value.trim();
         if (!val) return;
 
-        let mediaId = val;
+        let finalId = val;
         if (currentMode === 'youtube') {
-            mediaId = getYoutubeId(val) || val;
+            finalId = extractYoutubeId(val);
         } else {
-            mediaId = convertSpotifyUrl(val);
+            finalId = convertSpotifyUrl(val);
         }
 
         await setDoc(mediaDocRef, {
             mode: currentMode,
-            id: mediaId,
-            updatedAt: Date.now(),
-            state: currentMode === 'youtube' ? 1 : null // 再生中状態
+            id: finalId,
+            timestamp: Date.now()
         });
         mediaInput.value = '';
     });
 
-    // メディア状態のリアルタイム同期受信
+    // プレイヤー状態の同期
     onSnapshot(mediaDocRef, (docSnap) => {
         if (!docSnap.exists()) return;
         const data = docSnap.data();
         
-        isUpdatingFromDB = true;
         switchMode(data.mode);
 
-        if (data.mode === 'youtube' && ytPlayer && ytPlayer.loadVideoById) {
-            const currentVideoId = ytPlayer.getVideoUrl().split('v=')[1]?.split('&')[0];
-            if (currentVideoId !== data.id) {
+        if (data.mode === 'youtube') {
+            if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
                 ytPlayer.loadVideoById(data.id);
             }
         } else if (data.mode === 'spotify') {
-            const spFrame = document.getElementById('spotify-player');
-            if (spFrame.src !== data.id) {
-                spFrame.src = data.id;
-            }
+            document.getElementById('spotify-player').src = data.id;
         }
-        isUpdatingFromDB = false;
     });
 
-    // YouTubeの再生/一時停止が手動で切り替わった時、他の人にも同期する
-    function onPlayerStateChange(event) {
-        if (isUpdatingFromDB) return;
-        // 再生(1)または一時停止(2)の時だけ時間を同期
-        if (event.data === YT.PlayerState.PLAYING || event.data === YT.PlayerState.PAUSED) {
-            // ※過剰な通信を避けるため、今回はURLの共有時に自動再生するシンプルな同期に留めています
-        }
-    }
-
-    // 21:00以降の古いメッセージをクリーンアップ
+    // --- チャット機能 ---
     async function checkAndCleanupOldMessages() {
         const now = new Date();
         const targetTime = new Date();
@@ -211,24 +199,18 @@
         if (now >= targetTime) {
             const q = query(messagesRef, where("createdAt", "<", targetTime));
             const querySnapshot = await getDocs(q);
-            querySnapshot.forEach((docSnap) => {
-                deleteDoc(doc(db, "chats", docSnap.id));
-            });
+            querySnapshot.forEach((docSnap) => { deleteDoc(doc(db, "chats", docSnap.id)); });
         }
     }
 
-    // チャットメッセージのリアルタイム監視
     const q = query(messagesRef, orderBy("createdAt", "asc"));
     onSnapshot(q, (snapshot) => {
         messagesDiv.innerHTML = '';
-        snapshot.forEach((docSnap) => {
-            appendMessage(docSnap.id, docSnap.data());
-        });
+        snapshot.forEach((docSnap) => { appendMessage(docSnap.id, docSnap.data()); });
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
         checkAndCleanupOldMessages();
     });
 
-    // メッセージ送信
     async function sendMessage() {
         const text = messageInput.value.trim();
         if (!text) return;
@@ -246,7 +228,6 @@
     sendBtn.addEventListener('click', sendMessage);
     messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
 
-    // 画面にメッセージを表示
     function appendMessage(id, msg) {
         const wrapper = document.createElement('div');
         wrapper.className = 'message-wrapper';
@@ -254,9 +235,7 @@
         
         let badgeHTML = '';
         Object.keys(reactions).forEach(emoji => {
-            if (reactions[emoji] > 0) {
-                badgeHTML += `<span class="badge">${emoji} ${reactions[emoji]}</span>`;
-            }
+            if (reactions[emoji] > 0) { badgeHTML += `<span class="badge">${emoji} ${reactions[emoji]}</span>`; }
         });
 
         wrapper.innerHTML = `
@@ -294,9 +273,7 @@
         });
 
         wrapper.querySelector('.delete-btn').addEventListener('click', () => {
-            if (confirm('このメッセージを削除しますか？')) {
-                deleteDoc(doc(db, "chats", id));
-            }
+            if (confirm('このメッセージを削除しますか？')) { deleteDoc(doc(db, "chats", id)); }
         });
 
         messagesDiv.appendChild(wrapper);
@@ -309,9 +286,7 @@
     clearAllBtn.addEventListener('click', async () => {
         if (confirm('本当にすべてのログを削除しますか？')) {
             const querySnapshot = await getDocs(messagesRef);
-            querySnapshot.forEach((docSnap) => {
-                deleteDoc(doc(db, "chats", docSnap.id));
-            });
+            querySnapshot.forEach((docSnap) => { deleteDoc(doc(db, "chats", docSnap.id)); });
         }
     });
 
