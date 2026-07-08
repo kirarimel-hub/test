@@ -9,16 +9,44 @@
         #chat-container { flex: 1; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; }
         #header { padding: 15px; background: #333; color: white; display: flex; justify-content: space-between; align-items: center; }
         #clear-btn { background: #ff4d4d; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
-        #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
-        .message-box { background: #e9ecef; padding: 10px 15px; border-radius: 15px; max-width: 70%; position: relative; align-self: flex-start; }
-        .time { font-size: 0.75rem; color: #666; margin-top: 5px; text-align: right; }
-        .actions { margin-top: 8px; display: flex; gap: 5px; align-items: center; }
-        .react-btn { background: none; border: 1px solid #ddd; border-radius: 12px; padding: 2px 6px; font-size: 0.8rem; cursor: pointer; background: white; }
-        .delete-btn { background: none; border: none; color: #999; cursor: pointer; font-size: 0.8rem; margin-left: auto; }
-        .delete-btn:hover { color: red; }
+        #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
+        
+        /* メッセージ全体のラッパー */
+        .message-wrapper { display: flex; flex-direction: column; align-self: flex-start; max-width: 70%; position: relative; }
+        
+        /* メッセージ本体 */
+        .message-box { background: #e9ecef; padding: 12px 16px; border-radius: 18px; cursor: pointer; user-select: none; transition: background 0.2s; position: relative; }
+        .message-box:hover { background: #dfe3e8; }
+        
+        .time { font-size: 0.7rem; color: #888; margin-top: 3px; margin-left: 5px; }
+        
+        /* インスタ風ポップアップ式リアクションメニュー */
+        .reaction-popup {
+            display: none; position: absolute; top: -45px; left: 10px; 
+            background: white; border-radius: 30px; padding: 5px 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 1px solid #eaeaea;
+            gap: 8px; z-index: 10; animation: popupAnim 0.15s ease-out;
+        }
+        .reaction-popup.show { display: flex; }
+        .popup-btn { background: none; border: none; font-size: 1.3rem; cursor: pointer; padding: 2px; transition: transform 0.1s; }
+        .popup-btn:hover { transform: scale(1.3); }
+
+        /* ついたスタンプの表示エリア */
+        .active-reactions { display: flex; gap: 4px; margin-top: -5px; margin-left: 10px; z-index: 2; flex-wrap: wrap; }
+        .badge { background: white; border: 1px solid #e0e0e0; border-radius: 10px; padding: 1px 6px; font-size: 0.75rem; display: flex; align-items: center; gap: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+
+        /* 個別削除ボタン（普段は薄く、ホバーで赤く） */
+        .delete-btn { background: none; border: none; color: #bbb; cursor: pointer; font-size: 0.75rem; align-self: flex-start; margin-top: 2px; margin-left: 5px; padding: 0; }
+        .delete-btn:hover { color: #ff4d4d; }
+
         #input-area { padding: 15px; display: flex; gap: 10px; background: #fff; border-top: 1px solid #ddd; }
         #message-input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; outline: none; }
         #send-btn { background: #0084ff; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; }
+
+        @keyframes popupAnim {
+            from { transform: translateY(5px) scale(0.95); opacity: 0; }
+            to { transform: translateY(0) scale(1); opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -39,7 +67,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, increment, getDocs, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // Firebaseの接続設定（あなたのプロジェクトのものをそのまま維持しています）
     const firebaseConfig = {
         apiKey: "AIzaSyBNl085XeZfHiuerUWkUEXT5-gTrc96KwE",
         authDomain: "test-31742.firebaseapp.com",
@@ -49,7 +76,6 @@
         appId: "1:828848066600:web:8d0e1ae6fc77c8a90e651d"
     };
 
-    // Firebaseの初期化
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const messagesRef = collection(db, "chats");
@@ -59,7 +85,7 @@
     const sendBtn = document.getElementById('send-btn');
     const clearAllBtn = document.getElementById('clear-btn');
 
-    // 21:00以降の古いメッセージを自動クリーンアップする関数
+    // 21:00以降の古いメッセージをクリーンアップ
     async function checkAndCleanupOldMessages() {
         const now = new Date();
         const targetTime = new Date();
@@ -74,17 +100,14 @@
         }
     }
 
-    // リアルタイムにメッセージを監視・表示
+    // リアルタイム監視
     const q = query(messagesRef, orderBy("createdAt", "asc"));
     onSnapshot(q, (snapshot) => {
         messagesDiv.innerHTML = '';
         snapshot.forEach((docSnap) => {
-            const msg = docSnap.data();
-            appendMessage(docSnap.id, msg);
+            appendMessage(docSnap.id, docSnap.data());
         });
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        
-        // 21時消去のチェックを走らせる
         checkAndCleanupOldMessages();
     });
 
@@ -109,48 +132,74 @@
     sendBtn.addEventListener('click', sendMessage);
     messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
 
-    // 画面にメッセージを追加する関数
+    // 画面に表示
     function appendMessage(id, msg) {
-        const msgEl = document.createElement('div');
-        msgEl.className = 'message-box';
-        msgEl.id = `msg-${id}`;
-        
-        let reactionButtons = '';
+        const wrapper = document.createElement('div');
+        wrapper.className = 'message-wrapper';
+
         const reactions = msg.reactions || { '👍': 0, '❤️': 0, '😂': 0, '😮': 0 };
         
+        // すでに押されているスタンプのバッジを生成
+        let badgeHTML = '';
         Object.keys(reactions).forEach(emoji => {
-            const count = reactions[emoji];
-            reactionButtons += `<button class="react-btn" data-emoji="${emoji}">${emoji} ${count > 0 ? count : ''}</button>`;
+            if (reactions[emoji] > 0) {
+                badgeHTML += `<span class="badge">${emoji} ${reactions[emoji]}</span>`;
+            }
         });
 
-        msgEl.innerHTML = `
-            <div>${escapeHtml(msg.text)}</div>
-            <div class="time">${msg.time || ''}</div>
-            <div class="actions">
-                ${reactionButtons}
+        wrapper.innerHTML = `
+            <div class="reaction-popup" id="popup-${id}">
+                <button class="popup-btn" data-emoji="👍">👍</button>
+                <button class="popup-btn" data-emoji="❤️">❤️</button>
+                <button class="popup-btn" data-emoji="😂">😂</button>
+                <button class="popup-btn" data-emoji="😮">😮</button>
+            </div>
+            <div class="message-box">${escapeHtml(msg.text)}</div>
+            <div class="active-reactions">${badgeHTML}</div>
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <span class="time">${msg.time || ''}</span>
                 <button class="delete-btn">削除</button>
             </div>
         `;
 
-        // リアクションボタンのイベント
-        msgEl.querySelectorAll('.react-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
+        // メッセージを叩いたらメニューをトグル表示
+        const msgBox = wrapper.querySelector('.message-box');
+        const popup = wrapper.querySelector('.reaction-popup');
+        msgBox.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // 他の開いているポップアップを一旦全部閉じる
+            document.querySelectorAll('.reaction-popup').forEach(p => {
+                if(p !== popup) p.classList.remove('show');
+            });
+            popup.classList.toggle('show');
+        });
+
+        // ポップアップ内の絵文字が押されたとき
+        popup.querySelectorAll('.popup-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 const emoji = btn.getAttribute('data-emoji');
                 const updateData = {};
                 updateData[`reactions.${emoji}`] = increment(1);
                 updateDoc(doc(db, "chats", id), updateData);
+                popup.classList.remove('show'); // 押したら閉じる
             });
         });
 
-        // 個別削除ボタンのイベント
-        msgEl.querySelector('.delete-btn').addEventListener('click', () => {
+        // 個別削除
+        wrapper.querySelector('.delete-btn').addEventListener('click', () => {
             if (confirm('このメッセージを削除しますか？')) {
                 deleteDoc(doc(db, "chats", id));
             }
         });
 
-        messagesDiv.appendChild(msgEl);
+        messagesDiv.appendChild(wrapper);
     }
+
+    // 画面のどこかをタップしたらポップアップを閉じる
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.reaction-popup').forEach(p => p.classList.remove('show'));
+    });
 
     // 全削除機能
     clearAllBtn.addEventListener('click', async () => {
