@@ -9,19 +9,6 @@
         body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f0f2f5; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; -webkit-tap-highlight-color: transparent; }
         #chat-container { width: 100%; max-width: 600px; height: 95vh; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; position: relative; }
         #header { background: #007bff; color: white; padding: 10px 12px; display: flex; justify-content: flex-end; align-items: center; flex-shrink: 0; }
-        
-        /* メディア関連 */
-        #media-section { background: #111; padding: 10px; flex-shrink: 0; }
-        #media-input-wrapper { display: flex; gap: 5px; margin-bottom: 10px; }
-        #media-url-input { flex: 1; padding: 8px; border-radius: 4px; border: none; font-size: 0.9rem; background: #222; color: #fff; outline: none; }
-        #media-share-btn { background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        
-        #media-container { display: flex; flex-direction: column; transition: all 0.3s; }
-        #media-menu { display: flex; justify-content: space-between; align-items: center; background: #222; padding: 5px 10px; }
-        .media-tabs { display: flex; gap: 5px; }
-        .media-tab-btn { background: #007bff; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; }
-        #media-screen { width: 100%; height: 240px; background: #000; position: relative; }
-        #tver-player { width: 100%; height: 100%; border: none; }
 
         /* チャットエリア */
         #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; background: #fff; }
@@ -60,19 +47,6 @@
         <button id="clear-all-btn" style="background:#dc3545; color:white; border:none; border-radius:4px; padding: 5px 10px; cursor:pointer; font-size:0.85rem;">全削除</button>
     </div>
 
-    <div id="media-section">
-        <div id="media-input-wrapper">
-            <input type="text" id="media-url-input" placeholder="TVerのURLを入力">
-            <button id="media-share-btn">番組を流す</button>
-        </div>
-        <div id="media-container">
-            <div id="media-menu"><div class="media-tabs"><button class="media-tab-btn active">TVer (同期中)</button></div></div>
-            <div id="media-screen">
-                <iframe id="tver-player" allowfullscreen allow="autoplay"></iframe>
-            </div>
-        </div>
-    </div>
-
     <div id="messages"></div>
 
     <div id="global-reaction-popup" class="reaction-popup">
@@ -94,9 +68,8 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, setDoc, deleteDoc, getDocs, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, deleteDoc, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // 前回のFirebase設定に更新
     const firebaseConfig = {
         apiKey: "AIzaSyBNl085XeZfHiuerUWkUEXT5-gTrc96KwE",
         authDomain: "test-31742.firebaseapp.com",
@@ -111,62 +84,6 @@
     const myId = Math.random().toString(36).substring(2, 9);
     let activeMessageId = null;
 
-    const tverPlayer = document.getElementById('tver-player');
-
-    // TVer URLから埋め込み用URLを生成
-    function extractTVerUrl(inputUrl) {
-        if (!inputUrl) return '';
-        // TVerのURLパターン（episodes/epXXXXXXXX や series/srXXXXXXXX など）を判別
-        const match = inputUrl.match(/tver\.jp\/(episodes|series)\/([a-zA-Z0-9]+)/);
-        if (match) {
-            return `https://tver.jp/embed/${match[1]}/${match[2]}`;
-        }
-        // すでに embed URL や埋め込み形式の場合はそのまま使用
-        if (inputUrl.includes('tver.jp/embed/')) {
-            return inputUrl;
-        }
-        return inputUrl;
-    }
-
-    function loadTVerMedia(url) {
-        const embedUrl = extractTVerUrl(url);
-        if (embedUrl && tverPlayer.src !== embedUrl) {
-            tverPlayer.src = embedUrl;
-        }
-    }
-
-    // --- TVer同期設定 ---
-    async function syncMediaToFirebase(mediaUrl) {
-        try {
-            await setDoc(doc(db, "shared_media_v4", "current"), {
-                url: mediaUrl,
-                updatedBy: myId,
-                timestamp: Date.now()
-            });
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    // 初期化ロード
-    (async () => {
-        const snap = await getDoc(doc(db, "shared_media_v4", "current"));
-        if (snap.exists()) {
-            const data = snap.data();
-            if (data.url) loadTVerMedia(data.url);
-        }
-    })();
-
-    // リアルタイム同期リスナー
-    onSnapshot(doc(db, "shared_media_v4", "current"), (docSnap) => {
-        if (!docSnap.exists()) return;
-        const data = docSnap.data();
-        if (data.url) {
-            loadTVerMedia(data.url);
-        }
-    });
-
-    // --- チャット・スタンプ・削除機能 ---
     const container = document.getElementById('messages');
     const popup = document.getElementById('global-reaction-popup');
 
@@ -221,21 +138,25 @@
         container.scrollTop = container.scrollHeight;
     });
 
-    document.getElementById('send-btn').onclick = async () => {
+    const sendMessage = async () => {
         const input = document.getElementById('message-input');
-        if (input.value.trim()) { await addDoc(collection(db, "chat_messages"), { senderId: myId, text: input.value.trim(), createdAt: serverTimestamp(), reactions: {} }); input.value = ''; }
-    };
-    
-    document.getElementById('media-share-btn').onclick = () => {
-        const input = document.getElementById('media-url-input').value.trim();
-        if (input.toLowerCase() === 'hal') { window.open("https://steamcommunity.com/id/halsawa/", "_blank"); document.getElementById('media-url-input').value = ''; return; }
-        if (input.toLowerCase() === 'mel') { window.open("https://steamcommunity.com/id/melmelpython/", "_blank"); document.getElementById('media-url-input').value = ''; return; }
-        if (input.toLowerCase() === 'tel') { window.open("https://bizmee.net/1015-1227-2", "_blank"); document.getElementById('media-url-input').value = ''; return; }
+        const text = input.value.trim().toLowerCase();
         
-        if (input) {
-            syncMediaToFirebase(input);
+        // 隠しコマンド判定
+        if (text === 'hal') { window.open("https://steamcommunity.com/id/halsawa/", "_blank"); input.value = ''; return; }
+        if (text === 'mel') { window.open("https://steamcommunity.com/id/melmelpython/", "_blank"); input.value = ''; return; }
+        if (text === 'tel') { window.open("https://bizmee.net/1015-1227-2", "_blank"); input.value = ''; return; }
+        if (text === 'yt' || text === 'youtube') { window.open("https://kirarimel-hub.github.io/1015-1227-2/", "_blank"); input.value = ''; return; }
+
+        if (input.value.trim()) {
+            await addDoc(collection(db, "chat_messages"), { senderId: myId, text: input.value.trim(), createdAt: serverTimestamp(), reactions: {} });
+            input.value = '';
         }
-        document.getElementById('media-url-input').value = '';
+    };
+
+    document.getElementById('send-btn').onclick = sendMessage;
+    document.getElementById('message-input').onkeypress = (e) => {
+        if (e.key === 'Enter') sendMessage();
     };
 </script>
 </body>
