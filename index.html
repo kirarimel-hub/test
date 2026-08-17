@@ -3,91 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>匿名チャット ＆ 同時視聴ルーム</title>
+    <title>LOWYA（ロウヤ）</title>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 10px; display: flex; flex-direction: column; height: 95vh; box-sizing: border-box; }
-        #main-layout { display: flex; flex: 1; gap: 15px; overflow: hidden; height: 100%; }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f0f2f5; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; -webkit-tap-highlight-color: transparent; }
+        #chat-container { width: 100%; max-width: 600px; height: 95vh; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        #header { background: #007bff; color: white; padding: 10px 12px; display: flex; justify-content: flex-end; align-items: center; flex-shrink: 0; }
         
-        /* メディアプレイヤーエリア */
-        #media-area { flex: 1.2; background: #000; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-        #media-selector { background: #222; padding: 10px; display: flex; gap: 10px; align-items: center; color: white; }
-        .tab-btn { background: #444; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
-        .tab-btn.active { background: #0084ff; }
-        #media-input { flex: 1; padding: 6px; border-radius: 4px; border: none; }
-        #media-sync-btn { background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
-        #player-container { flex: 1; position: relative; width: 100%; height: 100%; background: #111; }
-        #yt-player { width: 100%; height: 100%; position: absolute; top:0; left:0; }
-        #spotify-player { width: 100%; height: 100%; border: none; display: none; position: absolute; top:0; left:0; }
+        /* メディア関連 */
+        #media-section { background: #111; padding: 10px; flex-shrink: 0; }
+        #media-input-wrapper { display: flex; gap: 5px; margin-bottom: 10px; }
+        #media-url-input { flex: 1; padding: 8px; border-radius: 4px; border: none; font-size: 0.9rem; background: #222; color: #fff; outline: none; }
+        #media-share-btn { background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        
+        #media-container { display: flex; flex-direction: column; transition: all 0.3s; }
+        #media-menu { display: flex; justify-content: space-between; align-items: center; background: #222; padding: 5px 10px; }
+        .media-tabs { display: flex; gap: 5px; }
+        .media-tab-btn { background: #007bff; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; }
+        #media-screen { width: 100%; height: 240px; background: #000; position: relative; }
+        #tver-player { width: 100%; height: 100%; border: none; }
 
         /* チャットエリア */
-        #chat-container { flex: 1; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; position: relative; }
-        
-        /* タイトルヘッダーを削除し、全削除ボタンのみを右上に浮かせるスタイルに変更 */
-        #clear-btn { position: absolute; top: 10px; right: 10px; background: #ff4d4d; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; z-index: 5; opacity: 0.6; transition: opacity 0.2s; }
-        #clear-btn:hover { opacity: 1; }
+        #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; background: #fff; }
+        .message-wrapper { display: flex; flex-direction: column; max-width: 75%; position: relative; margin-bottom: 5px; }
+        .my-messages { align-self: flex-end; align-items: flex-end; }
+        .other-messages { align-self: flex-start; align-items: flex-start; }
+        .message-row { display: flex; align-items: flex-end; gap: 8px; max-width: 100%; }
+        .my-messages .message-row { flex-direction: row-reverse; }
 
-        #messages { flex: 1; padding: 15px; padding-top: 45px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
+        .message { padding: 10px 14px; border-radius: 18px; background: #e4e6eb; font-size: 0.9rem; word-break: break-all; white-space: pre-wrap; cursor: pointer; transition: transform 0.1s; position: relative; user-select: none; }
+        .my-messages .message { background: #007bff; color: white; }
         
-        .message-wrapper { display: flex; flex-direction: column; align-self: flex-start; max-width: 85%; position: relative; }
-        .message-box { background: #e9ecef; padding: 10px 14px; border-radius: 18px; cursor: pointer; user-select: none; transition: background 0.2s; }
-        .message-box:hover { background: #dfe3e8; }
-        .time { font-size: 0.7rem; color: #888; margin-top: 3px; margin-left: 5px; }
+        /* リアクション */
+        .reaction-badge-container { display: flex; gap: 3px; position: absolute; bottom: -12px; background: white; padding: 2px 6px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.15); border: 1px solid #eee; font-size: 0.75rem; cursor: pointer; z-index: 2; pointer-events: auto; color: #333; }
+        .my-messages .reaction-badge-container { right: 10px; }
+        .other-messages .reaction-badge-container { left: 10px; }
+
+        /* スタンプポップアップ */
+        .reaction-popup { display: none; position: absolute; background: white; border-radius: 30px; padding: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); gap: 8px; z-index: 999; border: 1px solid #ddd; flex-wrap: wrap; width: 220px; justify-content: center; }
+        .reaction-emoji-btn { font-size: 1.3rem; border: none; background: none; cursor: pointer; padding: 4px; transition: transform 0.1s; }
+        .reaction-emoji-btn:hover { transform: scale(1.25); }
+
+        /* 削除リンク */
+        .msg-delete-link { font-size: 0.7rem; color: #aaa; text-decoration: none; cursor: pointer; visibility: hidden; margin: 0 4px; padding-bottom: 2px; }
+        .message-wrapper:hover .msg-delete-link { visibility: visible; }
         
-        .reaction-popup {
-            display: none; position: absolute; top: -45px; left: 10px; 
-            background: white; border-radius: 30px; padding: 5px 10px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 1px solid #eaeaea; gap: 8px; z-index: 10;
-        }
-        .reaction-popup.show { display: flex; }
-        .popup-btn { background: none; border: none; font-size: 1.3rem; cursor: pointer; padding: 2px; }
-        .popup-btn:hover { transform: scale(1.3); }
-        .active-reactions { display: flex; gap: 4px; margin-top: -5px; margin-left: 10px; z-index: 2; flex-wrap: wrap; }
-        .badge { background: white; border: 1px solid #e0e0e0; border-radius: 10px; padding: 1px 6px; font-size: 0.75rem; }
-        .delete-btn { background: none; border: none; color: #bbb; cursor: pointer; font-size: 0.75rem; align-self: flex-start; margin-top: 2px; margin-left: 5px; padding: 0; }
-        .delete-btn:hover { color: #ff4d4d; }
-
-        #input-area { padding: 12px; display: flex; gap: 10px; background: #fff; border-top: 1px solid #ddd; }
-        #message-input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; outline: none; }
-        #send-btn { background: #0084ff; color: white; border: none; padding: 10px 18px; border-radius: 20px; cursor: pointer; }
-
-        @media (max-width: 768px) {
-            #main-layout { flex-direction: column; }
-            #media-area { height: 300px; flex: none; }
-        }
+        #input-container { display: flex; padding: 10px; border-top: 1px solid #ddd; gap: 8px; background: white; flex-shrink: 0; align-items: center; }
+        #message-input { flex: 1; padding: 10px 15px; border: 1px solid #ccc; border-radius: 20px; outline: none; font-size: 0.95rem; }
+        #send-btn { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div id="main-layout">
-    <div id="media-area">
-        <div id="media-selector">
-            <button class="tab-btn active" id="tab-yt">YouTube</button>
-            <button class="tab-btn" id="tab-sp">Spotify</button>
-            <input type="text" id="media-input" placeholder="URLを貼り付けてください">
-            <button id="media-sync-btn">共有</button>
+<div id="chat-container">
+    <div id="header">
+        <button id="clear-all-btn" style="background:#dc3545; color:white; border:none; border-radius:4px; padding: 5px 10px; cursor:pointer; font-size:0.85rem;">全削除</button>
+    </div>
+
+    <div id="media-section">
+        <div id="media-input-wrapper">
+            <input type="text" id="media-url-input" placeholder="TVerのURLを入力">
+            <button id="media-share-btn">番組を流す</button>
         </div>
-        <div id="player-container">
-            <div id="yt-player"></div>
-            <iframe id="spotify-player" allow="encrypted-media"></iframe>
+        <div id="media-container">
+            <div id="media-menu"><div class="media-tabs"><button class="media-tab-btn active">TVer (同期中)</button></div></div>
+            <div id="media-screen">
+                <iframe id="tver-player" allowfullscreen allow="autoplay"></iframe>
+            </div>
         </div>
     </div>
 
-    <div id="chat-container">
-        <button id="clear-btn">ログ全削除</button>
-        <div id="messages"></div>
-        <div id="input-area">
-            <input type="text" id="message-input" placeholder="メッセージを入力...">
-            <button id="send-btn">送信</button>
-        </div>
+    <div id="messages"></div>
+
+    <div id="global-reaction-popup" class="reaction-popup">
+        <button class="reaction-emoji-btn" data-emoji="👍">👍</button>
+        <button class="reaction-emoji-btn" data-emoji="❤️">❤️</button>
+        <button class="reaction-emoji-btn" data-emoji="😂">😂</button>
+        <button class="reaction-emoji-btn" data-emoji="😮">😮</button>
+        <button class="reaction-emoji-btn" data-emoji="👉">👉</button>
+        <button class="reaction-emoji-btn" data-emoji="🙏">🙏</button>
+        <button class="reaction-emoji-btn" data-emoji="🥺">🥺</button>
+        <button class="reaction-emoji-btn" data-emoji="🌿">🌿</button>
+    </div>
+
+    <div id="input-container">
+        <input type="text" id="message-input" placeholder="メッセージを入力...">
+        <button id="send-btn">送信</button>
     </div>
 </div>
 
-<script src="https://www.youtube.com/iframe_api"></script>
-
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, increment, getDocs, where, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, setDoc, deleteDoc, getDocs, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+    // 前回のFirebase設定に更新
     const firebaseConfig = {
         apiKey: "AIzaSyBNl085XeZfHiuerUWkUEXT5-gTrc96KwE",
         authDomain: "test-31742.firebaseapp.com",
@@ -99,200 +108,135 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    const messagesRef = collection(db, "chats");
-    const mediaDocRef = doc(db, "roomState", "media");
+    const myId = Math.random().toString(36).substring(2, 9);
+    let activeMessageId = null;
 
-    const messagesDiv = document.getElementById('messages');
-    const messageInput = document.getElementById('message-input');
-    const sendBtn = document.getElementById('send-btn');
-    const clearAllBtn = document.getElementById('clear-btn');
-    const mediaInput = document.getElementById('media-input');
-    const mediaSyncBtn = document.getElementById('media-sync-btn');
-    const tabYt = document.getElementById('tab-yt');
-    const tabSp = document.getElementById('tab-sp');
+    const tverPlayer = document.getElementById('tver-player');
 
-    let ytPlayer = null;
-    let currentMode = 'youtube'; 
+    // TVer URLから埋め込み用URLを生成
+    function extractTVerUrl(inputUrl) {
+        if (!inputUrl) return '';
+        // TVerのURLパターン（episodes/epXXXXXXXX や series/srXXXXXXXX など）を判別
+        const match = inputUrl.match(/tver\.jp\/(episodes|series)\/([a-zA-Z0-9]+)/);
+        if (match) {
+            return `https://tver.jp/embed/${match[1]}/${match[2]}`;
+        }
+        // すでに embed URL や埋め込み形式の場合はそのまま使用
+        if (inputUrl.includes('tver.jp/embed/')) {
+            return inputUrl;
+        }
+        return inputUrl;
+    }
 
-    // YouTubeプレイヤーの初期設定
-    window.onYouTubeIframeAPIReady = () => {
-        ytPlayer = new YT.Player('yt-player', {
-            videoId: 'dQw4w9WgXcQ', // 初期のダミー動画
-            playerVars: { 'autoplay': 1, 'rel': 0 }
-        });
-    };
-
-    // 切り替え関数
-    function switchMode(mode) {
-        currentMode = mode;
-        tabYt.classList.toggle('active', mode === 'youtube');
-        tabSp.classList.toggle('active', mode === 'spotify');
-        
-        if (mode === 'youtube') {
-            document.getElementById('yt-player').style.display = 'block';
-            document.getElementById('spotify-player').style.display = 'none';
-        } else {
-            document.getElementById('yt-player').style.display = 'none';
-            document.getElementById('spotify-player').style.display = 'block';
+    function loadTVerMedia(url) {
+        const embedUrl = extractTVerUrl(url);
+        if (embedUrl && tverPlayer.src !== embedUrl) {
+            tverPlayer.src = embedUrl;
         }
     }
 
-    tabYt.addEventListener('click', () => switchMode('youtube'));
-    tabSp.addEventListener('click', () => switchMode('spotify'));
-
-    // あらゆる形式のYouTube URLから11桁のIDを確実に抜く処理
-    function extractYoutubeId(url) {
-        const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*/;
-        const match = url.match(regExp);
-        return (match && match[7].length === 11) ? match[7] : url;
+    // --- TVer同期設定 ---
+    async function syncMediaToFirebase(mediaUrl) {
+        try {
+            await setDoc(doc(db, "shared_media_v4", "current"), {
+                url: mediaUrl,
+                updatedBy: myId,
+                timestamp: Date.now()
+            });
+        } catch (e) {
+            console.error(e);
+        }
     }
 
-    // Spotifyの共有リンクを埋め込み用のURL形式（/embed/）に変換する処理
-    function convertSpotifyUrl(url) {
-        if (url.includes('spotify.com') && !url.includes('/embed')) {
-            return url.replace('spotify.com/', 'spotify.com/embed/');
+    // 初期化ロード
+    (async () => {
+        const snap = await getDoc(doc(db, "shared_media_v4", "current"));
+        if (snap.exists()) {
+            const data = snap.data();
+            if (data.url) loadTVerMedia(data.url);
         }
-        return url;
-    }
+    })();
 
-    // 共有ボタンが押されたとき
-    mediaSyncBtn.addEventListener('click', async () => {
-        const val = mediaInput.value.trim();
-        if (!val) return;
-
-        let finalId = val;
-        if (currentMode === 'youtube') {
-            finalId = extractYoutubeId(val);
-        } else {
-            finalId = convertSpotifyUrl(val);
-        }
-
-        await setDoc(mediaDocRef, {
-            mode: currentMode,
-            id: finalId,
-            timestamp: Date.now()
-        });
-        mediaInput.value = '';
-    });
-
-    // プレイヤー状態の同期
-    onSnapshot(mediaDocRef, (docSnap) => {
+    // リアルタイム同期リスナー
+    onSnapshot(doc(db, "shared_media_v4", "current"), (docSnap) => {
         if (!docSnap.exists()) return;
         const data = docSnap.data();
+        if (data.url) {
+            loadTVerMedia(data.url);
+        }
+    });
+
+    // --- チャット・スタンプ・削除機能 ---
+    const container = document.getElementById('messages');
+    const popup = document.getElementById('global-reaction-popup');
+
+    window.openReactionMenu = (e, msgId) => {
+        e.stopPropagation(); activeMessageId = msgId;
+        const rect = e.currentTarget.getBoundingClientRect();
+        popup.style.top = `${rect.top - 60}px`; popup.style.left = `${rect.left}px`; popup.style.display = 'flex';
+    };
+    document.addEventListener('click', () => { popup.style.display = 'none'; });
+
+    document.querySelectorAll('.reaction-emoji-btn').forEach(btn => {
+        btn.onclick = async (e) => {
+            e.stopPropagation(); if (!activeMessageId) return;
+            const emoji = btn.dataset.emoji, msgRef = doc(db, "chat_messages", activeMessageId);
+            const snap = await getDocs(query(collection(db, "chat_messages")));
+            let reactions = {};
+            snap.forEach(d => { if(d.id === activeMessageId) reactions = d.data().reactions || {}; });
+            if (!reactions[emoji]) reactions[emoji] = [];
+            reactions[emoji].push(myId);
+            await updateDoc(msgRef, { reactions });
+            popup.style.display = 'none';
+        };
+    });
+
+    document.getElementById('clear-all-btn').onclick = async () => {
+        if (confirm("全削除しますか？")) {
+            const snap = await getDocs(query(collection(db, "chat_messages")));
+            for (const d of snap.docs) await deleteDoc(doc(db, "chat_messages", d.id));
+        }
+    };
+
+    onSnapshot(query(collection(db, "chat_messages"), orderBy("createdAt", "asc")), (snap) => {
+        container.innerHTML = '';
+        snap.forEach(d => {
+            const data = d.data(), msgId = d.id, reactions = data.reactions || {};
+            const wrapper = document.createElement('div');
+            wrapper.className = `message-wrapper ${data.senderId === myId ? 'my-messages' : 'other-messages'}`;
+            const row = document.createElement('div'); row.className = 'message-row';
+            const msg = document.createElement('div'); msg.className = 'message';
+            msg.textContent = data.text;
+            msg.onclick = (e) => window.openReactionMenu(e, msgId);
+            
+            let badgeText = "";
+            for (const [e, u] of Object.entries(reactions)) if (u.length > 0) badgeText += `${e}${u.length} `;
+            if (badgeText) { const b = document.createElement('div'); b.className = 'reaction-badge-container'; b.textContent = badgeText; msg.appendChild(b); }
+            
+            row.appendChild(msg);
+            const del = document.createElement('span'); del.className = 'msg-delete-link'; del.textContent = '削除';
+            del.onclick = async (e) => { e.stopPropagation(); await deleteDoc(doc(db, "chat_messages", msgId)); };
+            row.appendChild(del); wrapper.appendChild(row); container.appendChild(wrapper);
+        });
+        container.scrollTop = container.scrollHeight;
+    });
+
+    document.getElementById('send-btn').onclick = async () => {
+        const input = document.getElementById('message-input');
+        if (input.value.trim()) { await addDoc(collection(db, "chat_messages"), { senderId: myId, text: input.value.trim(), createdAt: serverTimestamp(), reactions: {} }); input.value = ''; }
+    };
+    
+    document.getElementById('media-share-btn').onclick = () => {
+        const input = document.getElementById('media-url-input').value.trim();
+        if (input.toLowerCase() === 'hal') { window.open("https://steamcommunity.com/id/halsawa/", "_blank"); document.getElementById('media-url-input').value = ''; return; }
+        if (input.toLowerCase() === 'mel') { window.open("https://steamcommunity.com/id/melmelpython/", "_blank"); document.getElementById('media-url-input').value = ''; return; }
+        if (input.toLowerCase() === 'tel') { window.open("https://bizmee.net/1015-1227-2", "_blank"); document.getElementById('media-url-input').value = ''; return; }
         
-        switchMode(data.mode);
-
-        if (data.mode === 'youtube') {
-            if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
-                ytPlayer.loadVideoById(data.id);
-            }
-        } else if (data.mode === 'spotify') {
-            document.getElementById('spotify-player').src = data.id;
+        if (input) {
+            syncMediaToFirebase(input);
         }
-    });
-
-    // --- チャット機能 ---
-    async function checkAndCleanupOldMessages() {
-        const now = new Date();
-        const targetTime = new Date();
-        targetTime.setHours(21, 0, 0, 0);
-        if (now >= targetTime) {
-            const q = query(messagesRef, where("createdAt", "<", targetTime));
-            const querySnapshot = await getDocs(q);
-            querySnapshot.forEach((docSnap) => { deleteDoc(doc(db, "chats", docSnap.id)); });
-        }
-    }
-
-    const q = query(messagesRef, orderBy("createdAt", "asc"));
-    onSnapshot(q, (snapshot) => {
-        messagesDiv.innerHTML = '';
-        snapshot.forEach((docSnap) => { appendMessage(docSnap.id, docSnap.data()); });
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        checkAndCleanupOldMessages();
-    });
-
-    async function sendMessage() {
-        const text = messageInput.value.trim();
-        if (!text) return;
-        const now = new Date();
-        const timeStr = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-        await addDoc(messagesRef, {
-            text: text,
-            time: timeStr,
-            createdAt: now,
-            reactions: { '👍': 0, '❤️': 0, '😂': 0, '😮': 0 }
-        });
-        messageInput.value = '';
-    }
-
-    sendBtn.addEventListener('click', sendMessage);
-    messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
-
-    function appendMessage(id, msg) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'message-wrapper';
-        const reactions = msg.reactions || { '👍': 0, '❤️': 0, '😂': 0, '😮': 0 };
-        
-        let badgeHTML = '';
-        Object.keys(reactions).forEach(emoji => {
-            if (reactions[emoji] > 0) { badgeHTML += `<span class="badge">${emoji} ${reactions[emoji]}</span>`; }
-        });
-
-        wrapper.innerHTML = `
-            <div class="reaction-popup" id="popup-${id}">
-                <button class="popup-btn" data-emoji="👍">👍</button>
-                <button class="popup-btn" data-emoji="❤️">❤️</button>
-                <button class="popup-btn" data-emoji="😂">😂</button>
-                <button class="popup-btn" data-emoji="😮">😮</button>
-            </div>
-            <div class="message-box">${escapeHtml(msg.text)}</div>
-            <div class="active-reactions">${badgeHTML}</div>
-            <div style="display: flex; align-items: center; gap: 5px;">
-                <span class="time">${msg.time || ''}</span>
-                <button class="delete-btn">削除</button>
-            </div>
-        `;
-
-        const msgBox = wrapper.querySelector('.message-box');
-        const popup = wrapper.querySelector('.reaction-popup');
-        msgBox.addEventListener('click', (e) => {
-            e.stopPropagation();
-            document.querySelectorAll('.reaction-popup').forEach(p => { if(p !== popup) p.classList.remove('show'); });
-            popup.classList.toggle('show');
-        });
-
-        popup.querySelectorAll('.popup-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const emoji = btn.getAttribute('data-emoji');
-                const updateData = {};
-                updateData[`reactions.${emoji}`] = increment(1);
-                updateDoc(doc(db, "chats", id), updateData);
-                popup.classList.remove('show');
-            });
-        });
-
-        wrapper.querySelector('.delete-btn').addEventListener('click', () => {
-            if (confirm('このメッセージを削除しますか？')) { deleteDoc(doc(db, "chats", id)); }
-        });
-
-        messagesDiv.appendChild(wrapper);
-    }
-
-    document.addEventListener('click', () => {
-        document.querySelectorAll('.reaction-popup').forEach(p => p.classList.remove('show'));
-    });
-
-    clearAllBtn.addEventListener('click', async () => {
-        if (confirm('本当にすべてのログを削除しますか？')) {
-            const querySnapshot = await getDocs(messagesRef);
-            querySnapshot.forEach((docSnap) => { deleteDoc(doc(db, "chats", docSnap.id)); });
-        }
-    });
-
-    function escapeHtml(str) {
-        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
+        document.getElementById('media-url-input').value = '';
+    };
 </script>
 </body>
 </html>
