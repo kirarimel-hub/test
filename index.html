@@ -2,52 +2,257 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>LOWYA（ロウヤ）</title>
     <style>
         *, *::before, *::after { box-sizing: border-box; }
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f0f2f5; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; -webkit-tap-highlight-color: transparent; }
-        #chat-container { width: 100%; max-width: 600px; height: 95vh; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
+            background-color: #f0f2f5;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #chat-container {
+            width: 100%;
+            max-width: 600px;
+            height: 100%;
+            height: 100dvh;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
         
         /* ヘッダー＆検索エリア */
-        #header { background: #007bff; color: white; padding: 10px 12px; display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
-        #search-input { flex: 1; padding: 6px 12px; border-radius: 16px; border: none; font-size: 0.85rem; outline: none; background: rgba(255, 255, 255, 0.9); }
-        #search-btn { background: #0056b3; color: white; border: none; padding: 6px 12px; border-radius: 16px; cursor: pointer; font-size: 0.8rem; font-weight: bold; white-space: nowrap; }
-        #clear-all-btn { background: #dc3545; color: white; border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer; font-size: 0.8rem; white-space: nowrap; }
+        #header {
+            background: #007bff;
+            color: white;
+            padding: 10px 12px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        #search-input {
+            flex: 1;
+            padding: 8px 12px;
+            border-radius: 16px;
+            border: none;
+            font-size: 0.85rem;
+            outline: none;
+            background: rgba(255, 255, 255, 0.9);
+        }
+        #search-btn {
+            background: #0056b3;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 16px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        #clear-all-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
 
         /* チャットエリア */
-        #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; background: #fff; }
-        .message-wrapper { display: flex; flex-direction: column; max-width: 75%; position: relative; margin-bottom: 5px; }
+        #messages {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            background: #fff;
+            -webkit-overflow-scrolling: touch;
+        }
+        .message-wrapper {
+            display: flex;
+            flex-direction: column;
+            max-width: 75%;
+            position: relative;
+            margin-bottom: 5px;
+        }
         .my-messages { align-self: flex-end; align-items: flex-end; }
         .other-messages { align-self: flex-start; align-items: flex-start; }
         .message-row { display: flex; align-items: flex-end; gap: 8px; max-width: 100%; }
         .my-messages .message-row { flex-direction: row-reverse; }
 
-        .message { padding: 10px 14px; border-radius: 18px; background: #e4e6eb; font-size: 0.9rem; word-break: break-all; white-space: pre-wrap; cursor: pointer; transition: transform 0.1s; position: relative; user-select: none; }
+        .message {
+            padding: 10px 14px;
+            border-radius: 18px;
+            background: #e4e6eb;
+            font-size: 0.9rem;
+            word-break: break-all;
+            white-space: pre-wrap;
+            cursor: pointer;
+            transition: transform 0.1s;
+            position: relative;
+            user-select: none;
+        }
         .my-messages .message { background: #007bff; color: white; }
         
         /* チャット画像表示 */
-        .chat-image { max-width: 100%; max-height: 250px; border-radius: 12px; display: block; cursor: pointer; margin-top: 4px; }
+        .chat-image {
+            max-width: 100%;
+            max-height: 250px;
+            border-radius: 12px;
+            display: block;
+            cursor: pointer;
+            margin-top: 4px;
+            object-fit: cover;
+        }
 
         /* リアクション */
-        .reaction-badge-container { display: flex; gap: 3px; position: absolute; bottom: -12px; background: white; padding: 2px 6px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.15); border: 1px solid #eee; font-size: 0.75rem; cursor: pointer; z-index: 2; pointer-events: auto; color: #333; }
+        .reaction-badge-container {
+            display: flex;
+            gap: 3px;
+            position: absolute;
+            bottom: -12px;
+            background: white;
+            padding: 2px 6px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+            border: 1px solid #eee;
+            font-size: 0.75rem;
+            cursor: pointer;
+            z-index: 2;
+            pointer-events: auto;
+            color: #333;
+        }
         .my-messages .reaction-badge-container { right: 10px; }
         .other-messages .reaction-badge-container { left: 10px; }
 
         /* スタンプポップアップ */
-        .reaction-popup { display: none; position: absolute; background: white; border-radius: 30px; padding: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); gap: 8px; z-index: 999; border: 1px solid #ddd; flex-wrap: wrap; width: 220px; justify-content: center; }
-        .reaction-emoji-btn { font-size: 1.3rem; border: none; background: none; cursor: pointer; padding: 4px; transition: transform 0.1s; }
+        .reaction-popup {
+            display: none;
+            position: absolute;
+            background: white;
+            border-radius: 30px;
+            padding: 8px 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            gap: 8px;
+            z-index: 999;
+            border: 1px solid #ddd;
+            flex-wrap: wrap;
+            width: 230px;
+            justify-content: center;
+        }
+        .reaction-emoji-btn {
+            font-size: 1.3rem;
+            border: none;
+            background: none;
+            cursor: pointer;
+            padding: 4px;
+            transition: transform 0.1s;
+        }
         .reaction-emoji-btn:hover { transform: scale(1.25); }
 
         /* 削除リンク */
-        .msg-delete-link { font-size: 0.7rem; color: #aaa; text-decoration: none; cursor: pointer; visibility: hidden; margin: 0 4px; padding-bottom: 2px; }
+        .msg-delete-link {
+            font-size: 0.7rem;
+            color: #aaa;
+            text-decoration: none;
+            cursor: pointer;
+            visibility: hidden;
+            margin: 0 4px;
+            padding-bottom: 2px;
+        }
         .message-wrapper:hover .msg-delete-link { visibility: visible; }
         
         /* 入力エリア */
-        #input-container { display: flex; padding: 10px; border-top: 1px solid #ddd; gap: 8px; background: white; flex-shrink: 0; align-items: center; }
-        #image-upload-btn { background: #f0f2f5; border: 1px solid #ccc; border-radius: 50%; width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 1.2rem; flex-shrink: 0; }
-        #message-input { flex: 1; padding: 10px 15px; border: 1px solid #ccc; border-radius: 20px; outline: none; font-size: 0.95rem; }
-        #send-btn { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
+        #input-container {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid #ddd;
+            gap: 8px;
+            background: white;
+            flex-shrink: 0;
+            align-items: center;
+        }
+        #image-upload-btn {
+            background: #f0f2f5;
+            border: 1px solid #ccc;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+        #message-input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            outline: none;
+            font-size: 0.95rem;
+        }
+        #send-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* 画像モーダル（大画面表示） */
+        #image-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh; height: 100dvh;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        #image-modal img {
+            max-width: 100%;
+            max-height: 90%;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+        #image-modal-close {
+            position: absolute;
+            top: 20px; right: 20px;
+            color: white;
+            font-size: 2rem;
+            cursor: pointer;
+            font-weight: bold;
+            background: none;
+            border: none;
+        }
     </style>
 </head>
 <body>
@@ -64,7 +269,7 @@
     <div id="global-reaction-popup" class="reaction-popup">
         <button class="reaction-emoji-btn" data-emoji="👍">👍</button>
         <button class="reaction-emoji-btn" data-emoji="❤️">❤️</button>
-        <button class="reaction-emoji-btn" data-emoji="😂">😂</button>
+        <button class="reaction-emoji-btn" data-emoji="😗">😗</button>
         <button class="reaction-emoji-btn" data-emoji="😮">😮</button>
         <button class="reaction-emoji-btn" data-emoji="👉">👉</button>
         <button class="reaction-emoji-btn" data-emoji="🙏">🙏</button>
@@ -80,6 +285,12 @@
         <input type="text" id="message-input" placeholder="メッセージを入力...">
         <button id="send-btn">送信</button>
     </div>
+</div>
+
+<!-- 画像拡大表示モーダル -->
+<div id="image-modal">
+    <button id="image-modal-close">&times;</button>
+    <img id="modal-img-content" src="" alt="拡大画像">
 </div>
 
 <script type="module">
@@ -103,17 +314,23 @@
     const container = document.getElementById('messages');
     const popup = document.getElementById('global-reaction-popup');
 
+    const scrollToBottom = () => {
+        container.scrollTop = container.scrollHeight;
+    };
+
     // コマンド実行処理
     const executeCommand = (keyword) => {
         const key = keyword.trim().toLowerCase();
         if (key === 'hal') { window.open("https://steamcommunity.com/id/halsawa/", "_blank"); return true; }
         if (key === 'mel') { window.open("https://steamcommunity.com/id/melmelpython/", "_blank"); return true; }
         if (key === 'tel') { window.open("https://bizmee.net/1015-1227-2", "_blank"); return true; }
-        if (key === 'yt' || key === 'youtube') { window.open("https://kirarimel-hub.github.io/1015-1227-2/", "_blank"); return true; }
+        if (key === 'yt' || key === 'youtube' || key === '動画') { window.open("https://kirarimel-hub.github.io/1015-1227-2/", "_blank"); return true; }
+        if (key === '鐘') { window.open("https://note.com/mute_1015_1227", "_blank"); return true; }
+        if (key === 'ぶぶ') { window.open("https://note.com/mild_fox1814", "_blank"); return true; }
         return false;
     };
 
-    // 上部検索バーのイベント処理
+    // 上部検索バー処理
     const handleSearch = () => {
         const input = document.getElementById('search-input');
         if (input.value) {
@@ -126,34 +343,61 @@
         if (e.key === 'Enter') handleSearch();
     };
 
-    // リアクション処理
+    // リアクションメニュー表示
     window.openReactionMenu = (e, msgId) => {
         e.stopPropagation(); activeMessageId = msgId;
         const rect = e.currentTarget.getBoundingClientRect();
-        popup.style.top = `${rect.top - 60}px`; popup.style.left = `${rect.left}px`; popup.style.display = 'flex';
+        popup.style.top = `${Math.max(10, rect.top - 60)}px`;
+        popup.style.left = `${Math.min(window.innerWidth - 240, Math.max(10, rect.left))}px`;
+        popup.style.display = 'flex';
     };
     document.addEventListener('click', () => { popup.style.display = 'none'; });
 
+    // リアクションの押下＆取り消し処理
     document.querySelectorAll('.reaction-emoji-btn').forEach(btn => {
         btn.onclick = async (e) => {
-            e.stopPropagation(); if (!activeMessageId) return;
-            const emoji = btn.dataset.emoji, msgRef = doc(db, "chat_messages", activeMessageId);
+            e.stopPropagation();
+            if (!activeMessageId) return;
+            const emoji = btn.dataset.emoji;
+            const msgRef = doc(db, "chat_messages", activeMessageId);
             const snap = await getDocs(query(collection(db, "chat_messages")));
             let reactions = {};
             snap.forEach(d => { if(d.id === activeMessageId) reactions = d.data().reactions || {}; });
+            
             if (!reactions[emoji]) reactions[emoji] = [];
-            reactions[emoji].push(myId);
+            
+            const index = reactions[emoji].indexOf(myId);
+            if (index > -1) {
+                // 既に押していれば取り消し（削除）
+                reactions[emoji].splice(index, 1);
+            } else {
+                // まだ押していなければ追加
+                reactions[emoji].push(myId);
+            }
+            
             await updateDoc(msgRef, { reactions });
             popup.style.display = 'none';
         };
     });
 
-    // 全削除処理
+    // 全削除処理（ダイアログ確認付き）
     document.getElementById('clear-all-btn').onclick = async () => {
-        if (confirm("全削除しますか？")) {
+        if (confirm("本当に削除するの？🥺")) {
             const snap = await getDocs(query(collection(db, "chat_messages")));
             for (const d of snap.docs) await deleteDoc(doc(db, "chat_messages", d.id));
         }
+    };
+
+    // 画像大画面（モーダル）表示処理
+    const imageModal = document.getElementById('image-modal');
+    const modalImgContent = document.getElementById('modal-img-content');
+    const closeModal = () => { imageModal.style.display = 'none'; };
+    imageModal.onclick = closeModal;
+    document.getElementById('image-modal-close').onclick = closeModal;
+
+    const openImageModal = (url) => {
+        modalImgContent.src = url;
+        imageModal.style.display = 'flex';
     };
 
     // メッセージ受信＆リアルタイム描画
@@ -170,7 +414,10 @@
                 const img = document.createElement('img');
                 img.src = data.imageUrl;
                 img.className = 'chat-image';
-                img.onclick = () => window.open(data.imageUrl, '_blank');
+                img.onclick = (e) => {
+                    e.stopPropagation();
+                    openImageModal(data.imageUrl);
+                };
                 msg.appendChild(img);
             } else {
                 msg.textContent = data.text;
@@ -179,16 +426,40 @@
             msg.onclick = (e) => window.openReactionMenu(e, msgId);
             
             let badgeText = "";
-            for (const [e, u] of Object.entries(reactions)) if (u.length > 0) badgeText += `${e}${u.length} `;
-            if (badgeText) { const b = document.createElement('div'); b.className = 'reaction-badge-container'; b.textContent = badgeText; msg.appendChild(b); }
+            for (const [e, u] of Object.entries(reactions)) {
+                if (u && u.length > 0) badgeText += `${e}${u.length} `;
+            }
+            if (badgeText) {
+                const b = document.createElement('div');
+                b.className = 'reaction-badge-container';
+                b.textContent = badgeText;
+                msg.appendChild(b);
+            }
             
             row.appendChild(msg);
-            const del = document.createElement('span'); del.className = 'msg-delete-link'; del.textContent = '削除';
-            del.onclick = async (e) => { e.stopPropagation(); await deleteDoc(doc(db, "chat_messages", msgId)); };
-            row.appendChild(del); wrapper.appendChild(row); container.appendChild(wrapper);
+            
+            // 個別削除リンク（ダイアログ確認付き）
+            const del = document.createElement('span');
+            del.className = 'msg-delete-link';
+            del.textContent = '削除';
+            del.onclick = async (e) => {
+                e.stopPropagation();
+                if (confirm("本当に削除するの？🥺")) {
+                    await deleteDoc(doc(db, "chat_messages", msgId));
+                }
+            };
+            row.appendChild(del);
+            wrapper.appendChild(row);
+            container.appendChild(wrapper);
         });
-        container.scrollTop = container.scrollHeight;
+        scrollToBottom();
     });
+
+    // 画面復帰時の自動再同期・最下部スクロール
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) scrollToBottom();
+    });
+    window.addEventListener('focus', scrollToBottom);
 
     // テキスト送信処理
     const sendMessage = async () => {
